@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    >
+    <title>Gofali</title>
+
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.2.1/css/dataTables.tailwindcss.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Pixelify+Sans:wght@700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script
+      src="https://code.jquery.com/jquery-3.7.1.min.js"
+      integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+      crossorigin="anonymous"
+    ></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              h1: ['Pixelify Sans', 'serif'],
+              site: ['Inter', 'serif']
+            },
+            fontWeight: {
+              h1: '700'
+            }
+          }
+        },
+        darkMode: 'class'
+      }
+    </script>
+
+    <script src="https://cdn.datatables.net/2.2.1/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.2.1/js/dataTables.tailwindcss.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/3.0.3/js/dataTables.responsive.js"></script>
+    <script src="https://cdn.datatables.net/responsive/3.0.3/js/responsive.dataTables.js"></script>
+  </head>
+  <body>
+    <div class="container mx-auto mt-10 px-4 sm:px-6 lg:px-8">
+      <h1 class="mb-10 text-center text-6xl font-bold uppercase text-blue-500 font-h1">Gofali</h1>
+
+      <form
+        id="link-form"
+        class="mb-4 flex flex-col justify-center text-gray-800 sm:flex-row sm:items-center sm:space-x-4 font-site"
+        onsubmit="addLink(this); return false;"
+      >
+        <div class="mb-2 flex-1">
+          <label for="url" class="block text-sm font-medium">URL <span
+            class="text-gray-500 italic"
+          >(required)</span></label>
+          <input
+            type="url"
+            id="url"
+            name="url"
+            class="mt-1 block w-full rounded-md border border-gray-200 p-1 transition duration-200 ease-in-out focus:border-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            required
+          />
+        </div>
+        <button
+          type="submit"
+          class="mt-2 rounded-md bg-blue-500 px-6 py-2 uppercase text-white transition duration-200 ease-in-out hover:bg-blue-600"
+        >Add link
+        </button>
+      </form>
+
+      <table id="links" class="display mt-6 w-full table-auto" style="font-family: Inter, serif;">
+        <thead class="bg-gray-100">
+          <tr class="text-gray-800">
+            <th class="px-4 py-2 text-left">Slug</th>
+            <th class="px-4 py-2 text-left">URL</th>
+            <th class="px-4 py-2 text-left">Uses</th>
+            <th class="px-4 py-2 text-left">Created</th>
+            <th class="px-4 py-2 text-left">Updated</th>
+            <th class="px-4 py-2 text-left">Actions</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+
+    <script>
+      $(document).ready(function () {
+        const table = $('#links').DataTable({
+          ajax: {
+            url: 'all',
+            dataSrc: function (json) {
+              for (let i = 0, ien = json.length; i < ien; i++) {
+                json[i]['actions'] = `<div class="flex space-x-4">
+                   <a class="text-blue-500 cursor-pointer" onclick="editLink('${json[i]['slug']}')">Edit</a>
+                   <a class="text-red-500 cursor-pointer" onclick="delLink(this, '${json[i]['slug']}')">Delete</a>
+                 </div>`
+              }
+              return json
+            }
+          },
+          responsive: true,
+          columns: [
+            { data: 'slug' },
+            { data: 'url' },
+            { data: 'uses', searchable: false, type: 'numeric' },
+            { data: 'created', searchable: false, type: 'date' },
+            { data: 'updated', searchable: false, type: 'date' },
+            { data: 'actions', orderable: false, searchable: false }
+          ],
+          columnDefs: [
+            {
+              render: function (data) {
+                return `<span class="hover:cursor-pointer hover:text-blue-500 hover:underline" title="Click to copy">${data}</span>`
+              },
+              targets: 0
+            },
+            {
+              render: function (data) {
+                return `<div class="text-blue-500 underline">
+                    <a href="${data}" target="_blank">${decodeURIComponent(data)}</a>
+                  </div>`
+              },
+              targets: 1
+            },
+            {
+              render: function (data) {
+                return new Date(Date.parse(data)).toLocaleString()
+              },
+              targets: [3, 4]
+            }
+          ],
+          order: [[3, 'desc']]
+        })
+
+        function addLink(form) {
+          const url = form.querySelector('input[name="url"]').value.trim()
+
+          if (!url) {
+            alert('Url is required!')
+            return
+          }
+
+          const params = {
+            url: url
+          }
+
+          $.ajax({
+            url: 'create',
+            method: 'POST',
+            data: params,
+            success: function (response, textStatus, xhr) {
+              if (xhr.status !== 201) {
+                alert(response.message)
+                return
+              }
+              form.reset()
+              table.ajax.reload()
+            },
+            error: function (error) {
+              console.error('Error adding link:', error)
+            }
+          })
+        }
+
+        function editLink(slug) {
+          const url = prompt('Enter the new URL:')
+          if (!url) return
+
+          const params = {
+            slug: slug,
+            url: url
+          }
+
+          $.ajax({
+            url: 'edit',
+            method: 'PUT',
+            data: params,
+            success: function (response, textStatus, xhr) {
+              if (xhr.status !== 200) {
+                alert(response.message)
+                return
+              }
+              table.ajax.reload()
+            },
+            error: function (error) {
+              console.error('Error editing link:', error)
+            }
+          })
+        }
+
+        function delLink(el, slug) {
+          if (!confirm(`Are you sure you want to delete "${slug}"?`)) return
+
+          const params = {
+            slug: slug
+          }
+
+          $.ajax({
+            url: 'delete',
+            method: 'DELETE',
+            data: params,
+            success: function (response, textStatus, xhr) {
+              if (xhr.status !== 200) {
+                alert(response.message)
+                return
+              }
+              table.ajax.reload()
+            },
+            error: function (error) {
+              console.error('Error deleting link:', error)
+            }
+          })
+        }
+
+        async function copySlugToClipboard(slug) {
+          try {
+            const domain = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`
+            const link = `${domain}/${slug}`
+            await navigator.clipboard.writeText(link)
+          } catch (error) {
+            console.error('Failed to copy to clipboard:', error)
+          }
+        }
+
+        $(document).on('click', 'span[title="Click to copy"]', function (event) {
+          const slug = $(event.target).text()
+          copySlugToClipboard(slug)
+        })
+
+        document.addLink = addLink
+        document.editLink = editLink
+        document.delLink = delLink
+      })
+    </script>
+  </body>
+</html>
